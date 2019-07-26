@@ -1,6 +1,7 @@
 """CPU functionality."""
 
 import sys
+from datetime import datetime
 
 
 class CPU:
@@ -46,13 +47,21 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0b00000000] * 256
         self.reg = [0b00000000] * 8
-        self.sp = 7
+        self.sp = 0x07
+        self.imr = 0x05
+        self.isr = 0x06
+
         self.reg[self.sp] = 0xf4
         self.pc = 0
-        self.ic = 0
         self.fl = 0
         self.ir = 0
+
+        self.mar = 0
+        self.mdr = 0
+
         self.halted = False
+        self.dintr = False
+        self.ts = datetime.now().timestamp()
 
         self.dispatch = {
             'NOP': self.exec_nop,
@@ -96,14 +105,24 @@ class CPU:
 
     def exec_hlt(self):
         self.halted = True
-        print('program halted')
 
     def exec_ret(self):
         self.exec_pop(0x04)
         self.pc = self.reg[0x04]
 
     def exec_iret(self):
-        pass
+        self.exec_pop(0x06)
+        self.exec_pop(0x05)
+        self.exec_pop(0x04)
+        self.exec_pop(0x03)
+        self.exec_pop(0x02)
+        self.exec_pop(0x01)
+        self.exec_pop(0x00)
+        self.fl = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+        self.pc = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+        self.dintr = False
 
     def exec_push(self, a):
         self.reg[self.sp] -= 1
@@ -124,8 +143,26 @@ class CPU:
         self.exec_push(0x04)
         self.pc = self.reg[a]
 
-    def exec_int():
-        pass
+    def exec_int(self, a):
+        for q in range(8):
+            if a >> q & 0b00000001 == 1:
+                self.dintr = True
+                self.reg[self.isr] = self.reg[self.isr] - \
+                    (0b00000001 << q)
+                self.reg[0x04] = self.pc
+                self.exec_push(0x04)
+                self.reg[0x04] = self.fl
+                self.exec_push(0x04)
+                self.exec_push(0x00)
+                self.exec_push(0x01)
+                self.exec_push(0x02)
+                self.exec_push(0x03)
+                self.exec_push(0x04)
+                self.exec_push(0x05)
+                self.exec_push(0x06)
+                self.mar = self.ram[0xf8+q]
+                self.pc = self.mar
+                break
 
     def exec_jmp(self, a):
         self.pc = self.reg[a]
@@ -292,6 +329,16 @@ class CPU:
     def run(self):
         """Run the CPU."""
         while not self.halted:
+            if datetime.now().timestamp() - self.ts >= 1:
+                self.ts = datetime.now().timestamp()
+                self.reg[self.isr] += 0b00000001
+
+            if not self.dintr:
+                self.mdr = self.reg[self.imr] & self.reg[self.isr]
+                self.exec_int(self.mdr)
+                if self.dintr:
+                    continue
+
             self.ir = self.pc
             ops_n = (self.ram_read(self.ir) >> 6) & 0b11
             newpc = (self.ram_read(self.ir) >> 4) & 0b0001
@@ -301,10 +348,10 @@ class CPU:
                     self.dispatch[self.instructions[self.ram_read(self.ir)]]()
                 elif ops_n == 1:
                     self.dispatch[self.instructions[self.ram_read(self.ir)]](
-                        self.ram_read(self.pc+1))
+                        self.ram_read(self.ir+1))
                 elif ops_n == 2:
                     self.dispatch[self.instructions[self.ram_read(self.ir)]](
-                        self.ram_read(self.pc+1), self.ram_read(self.pc+2))
+                        self.ram_read(self.ir+1), self.ram_read(self.ir+2))
             else:
                 print('Error: incorrect opcode. Exiting LS8')
                 sys.exit()
