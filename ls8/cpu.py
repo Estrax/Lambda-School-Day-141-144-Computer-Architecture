@@ -136,7 +136,7 @@ class CPU:
         print(self.reg[a])
 
     def exec_pra(self, a):
-        print(chr(self.reg[a]))
+        print(chr(self.ram_read(self.reg[a])))
 
     def exec_call(self, a):
         self.reg[0x04] = self.pc + 2
@@ -145,10 +145,9 @@ class CPU:
 
     def exec_int(self, a):
         for q in range(8):
-            if a >> q & 0b00000001 == 1:
+            if a >> q & 1 == 1:
                 self.dintr = True
-                self.reg[self.isr] = self.reg[self.isr] - \
-                    (0b00000001 << q)
+                self.reg[self.isr] = self.reg[self.isr] - (1 << q)
                 self.reg[0x04] = self.pc
                 self.exec_push(0x04)
                 self.reg[0x04] = self.fl
@@ -168,24 +167,24 @@ class CPU:
         self.pc = self.reg[a]
 
     def exec_jeq(self, a):
-        self.pc = self.reg[a] if self.fl == 1 else self.pc
+        self.pc = self.reg[a] if self.fl == 1 else self.pc+2
 
     def exec_jne(self, a):
-        self.pc = self.reg[a] if self.fl != 1 else self.pc
+        self.pc = self.reg[a] if self.fl != 1 else self.pc+2
 
     def exec_jgt(self, a):
-        self.pc = self.reg[a] if self.fl == 2 else self.pc
+        self.pc = self.reg[a] if self.fl == 2 else self.pc+2
 
     def exec_jlt(self, a):
-        self.pc = self.reg[a] if self.fl == 4 else self.pc
+        self.pc = self.reg[a] if self.fl == 4 else self.pc+2
 
     def exec_jle(self, a):
         self.pc = self.reg[a] if (
-            self.fl == 4 or self.fl == 1) else self.pc
+            self.fl == 4 or self.fl == 1) else self.pc+2
 
     def exec_jge(self, a):
         self.pc = self.reg[a] if (
-            self.fl == 2 or self.fl == 1) else self.pc
+            self.fl == 2 or self.fl == 1) else self.pc+2
 
     def exec_inc(self, a):
         self.alu('INC', a)
@@ -331,7 +330,7 @@ class CPU:
         while not self.halted:
             if datetime.now().timestamp() - self.ts >= 1:
                 self.ts = datetime.now().timestamp()
-                self.reg[self.isr] += 0b00000001
+                self.reg[self.isr] += 1
 
             if not self.dintr:
                 self.mdr = self.reg[self.imr] & self.reg[self.isr]
