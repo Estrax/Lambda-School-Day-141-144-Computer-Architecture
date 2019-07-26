@@ -145,9 +145,9 @@ class CPU:
 
     def exec_int(self, a):
         for q in range(8):
-            if a >> q & 1 == 1:
+            if a >> q & 0b00000001 == 1:
                 self.dintr = True
-                self.reg[self.isr] = self.reg[self.isr] - (1 << q)
+                self.reg[self.isr] = self.reg[self.isr] - (0b00000001 << q)
                 self.reg[0x04] = self.pc
                 self.exec_push(0x04)
                 self.reg[0x04] = self.fl
@@ -159,7 +159,7 @@ class CPU:
                 self.exec_push(0x04)
                 self.exec_push(0x05)
                 self.exec_push(0x06)
-                self.mar = self.ram[0xf8+q]
+                self.mar = self.ram_read(0xf8+q)
                 self.pc = self.mar
                 break
 
@@ -330,7 +330,7 @@ class CPU:
         while not self.halted:
             if datetime.now().timestamp() - self.ts >= 1:
                 self.ts = datetime.now().timestamp()
-                self.reg[self.isr] += 1
+                self.reg[self.isr] += 0b00000001
 
             if not self.dintr:
                 self.mdr = self.reg[self.imr] & self.reg[self.isr]
