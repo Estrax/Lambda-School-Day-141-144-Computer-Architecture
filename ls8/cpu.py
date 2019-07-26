@@ -2,6 +2,7 @@
 
 import sys
 from datetime import datetime
+import select
 
 
 class CPU:
@@ -325,6 +326,14 @@ class CPU:
 
         print()
 
+    def keyboard_hit(self):
+        i, o, e = select.select([sys.stdin], [], [], 0.000001)
+        if len(i) > 0:
+            input = sys.stdin.readline()
+            return True
+
+        return False
+
     def run(self):
         """Run the CPU."""
         while not self.halted:
@@ -332,7 +341,7 @@ class CPU:
                 self.ts = datetime.now().timestamp()
                 self.reg[self.isr] += 0b00000001
 
-            if not self.dintr:
+            if self.keyboard_hit() or not self.dintr:
                 self.mdr = self.reg[self.imr] & self.reg[self.isr]
                 self.exec_int(self.mdr)
                 if self.dintr:
